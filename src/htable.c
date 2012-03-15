@@ -2,35 +2,22 @@
 #include <assert.h>
 #include "htable.h"
 
+#include <stdio.h>
+
 typedef uint64_t htable_key_t;
 typedef void  *  htable_val_t;
-
-#define STATE_DELETED  1
-#define STATE_OCCUPIED 2
-
-#define HASH_TO_BLOCK(h) (h >> 2)
-#define HASH_TO_RECORD(h) (h & 3)
-#define BLOCKSTATE_GET(blockstate, record) \
-  (((blockstate) >> ((record) << 1)) & 3)
-#define BLOCKSTATE_SET(blockstate, record, value) \
-  (blockstate) = ((blockstate) & ~(3 << (record << 1))) |\
-                 (((value) & 3) << (record << 1))
-#define NEXT(htable, h) ((h) + 1 >= htable->numrecords ? 0 : (h) + 1)
 
 struct htable_record {
   htable_key_t key;
   htable_val_t val;
-};
-
-struct htable_block {
-  uint8_t state;
-  struct htable_record record[4];
+  struct htable_record *next;
 };
 
 struct htable_s {
-  struct htable_block *block;
-  size_t numblocks;
-  size_t numrecords;
+  struct htable_record **table;
+  struct htable_record *record;
+  struct htable_record *free;
+  size_t capacity;
 };
 
 /* Thomas Wang's hash64shift()
@@ -47,102 +34,122 @@ static int hash64shift(uint64_t k, int mod) {
   return k % mod;
 }
 
-htable_t *htable_new(size_t entries) {
+void pt(htable_t *t) {
+  struct htable_record *rec;
+  int i;
+
+  for (i=0; i<t->capacity; i++) {
+    fprintf(stderr, "table[%d]: ", i);
+    rec = t->table[i];
+    while(rec) {
+      fprintf(stderr, "%lld ",rec->key);
+      rec = rec->next;
+    }
+    fprintf(stderr, "\n");
+  }
+}
+
+htable_t *htable_new(size_t capacity) {
+  int i;
   htable_t *htable;
 
   htable = calloc(1, sizeof(htable_t));
   if (!htable)
     return NULL;
 
-  htable->numblocks = ((int)(entries * 1.4)) / 4 + 1;
-  htable->numrecords = htable->numblocks * 4;
-
-  htable->block = calloc(htable->numblocks, sizeof(struct htable_block));
-  if (!htable->block)
+  htable->record = malloc(capacity * sizeof(struct htable_record));
+  if (!htable->record) {
+    free(htable);
     return NULL;
+  }
+
+  htable->table = calloc(capacity, sizeof(struct htable_record *));
+  if (!htable->table) {
+    free(htable->record);
+    free(htable);
+    return NULL;
+  }
+
+  for (i=0; i<capacity; i++)
+    htable->record[i].next = &htable->record[i+1];
+  htable->record[capacity-1].next = NULL;
+
+  htable->free = &htable->record[0];
+  htable->capacity = capacity;
 
   return htable;
 }
 
 int htable_set(htable_t *htable, uint64_t key, void *val) {
-  int h, b, r, rs, probes;
+  int h;
+  struct htable_record *rec;
 
-  h = hash64shift(key, htable->numrecords);
+  rec = htable->free;
+  if (!rec)
+    return -1;
 
-  for (probes=0; probes < htable->numrecords; probes++) {
-    b = HASH_TO_BLOCK(h);
-    r = HASH_TO_RECORD(h);
-    rs = BLOCKSTATE_GET(htable->block[b].state, r);
+  htable->free = rec->next;
 
-    if (!(rs & STATE_OCCUPIED)) {
-      htable->block[b].record[r].key = key;
-      htable->block[b].record[r].val = val;
-      BLOCKSTATE_SET(htable->block[b].state, r, STATE_OCCUPIED);
-      return 0;
-    }
+  h = hash64shift(key, htable->capacity);
 
-    if (htable->block[b].record[r].key == key) {
-      htable->block[b].record[r].val = val;
-      return 0;
-    }
+  rec->next = htable->table[h];
+  htable->table[h] = rec;
+  rec->key = key;
+  rec->val = val;
 
-    h = NEXT(htable, h);
-  }
-
-  return -1;
+  return 0;
 }
 
 int htable_get(htable_t *htable, uint64_t key, void **val) {
-  int h, b, r, rs, probes;
+  int h;
+  struct htable_record *rec;
 
-  h = hash64shift(key, htable->numblocks * 4);
+  h = hash64shift(key, htable->capacity);
 
-  for (probes=0; probes < htable->numrecords; probes++) {
-    b = HASH_TO_BLOCK(h);
-    r = HASH_TO_RECORD(h);
-    rs = BLOCKSTATE_GET(htable->block[b].state, r);
+  rec = htable->table[h];
 
-    if (!rs)
-      return 1;
-
-    if (rs & STATE_OCCUPIED && htable->block[b].record[r].key == key) {
-      *val = htable->block[b].record[r].val;
+  while (rec) {
+    if (rec->key == key) {
+      *val = rec->val;
       return 0;
     }
-
-    h = NEXT(htable, h);
+    rec = rec->next;
   }
 
   return 1;
 }
 
 int htable_del(htable_t *htable, uint64_t key) {
-  int h, b, r, rs, probes;
+  int h;
+  struct htable_record *rec, *prev;
 
-  h = hash64shift(key, htable->numblocks * 4);
+  h = hash64shift(key, htable->capacity);
 
-  for (probes=0; probes < htable->numrecords; probes++) {
-    b = HASH_TO_BLOCK(h);
-    r = HASH_TO_RECORD(h);
-    rs = BLOCKSTATE_GET(htable->block[b].state, r);
+  prev = NULL;
+  rec = htable->table[h];
 
-    if (!rs)
-      return 1;
+  while (rec) {
+    if (rec->key == key) {
+      if (prev)
+        prev->next = rec->next;
+      else
+        htable->table[h] = rec->next;
+      rec->next = htable->free;
+      htable->free = rec;
 
-    if (rs & STATE_OCCUPIED && htable->block[b].record[r].key == key) {
-      BLOCKSTATE_SET(htable->block[b].state, r, STATE_DELETED);
       return 0;
     }
 
-    h = NEXT(htable, h);
+    prev = rec;
+    rec = rec->next;
   }
 
   return 1;
 }
 
  void htable_free(htable_t **htable) {
-   free((*htable)->block);
-   (*htable)->block = NULL;
+   free((*htable)->record);
+   free((*htable)->table);
    free(*htable);
    *htable = NULL;
  }

@@ -1,11 +1,6 @@
 #ifndef HTABLE_H_3f4c3193b823d6177b8337c512d3455f
 #define HTABLE_H_3f4c3193b823d6177b8337c512d3455f
 
-/* A hash table for integral types.
- *
- * Overhead per entry: 2 bits.
- */
-
 #include <stdint.h>
 
 typedef struct htable_s htable_t;

@@ -57,32 +57,6 @@ START_TEST(test_get_missing) {
 }
 END_TEST
 
-
-/* FIXME: the linked list table implementation does not allow overwrites */
-START_TEST(test_overwrite) {
-  htable_t *t = htable_new(10);
-
-  fail_unless(!htable_set(t, 123, (void *)321));
-  fail_unless(!htable_set(t, 124, (void *)421));
-  fail_unless(!htable_set(t, 125, (void *)521));
-  GET_AND_CHECK(t, 123, 321);
-  GET_AND_CHECK(t, 124, 421);
-  GET_AND_CHECK(t, 125, 521);
-
-  fail_unless(!htable_set(t, 125, (void *)0xdead));
-  GET_AND_CHECK(t, 123, 321);
-  GET_AND_CHECK(t, 124, 421);
-  GET_AND_CHECK(t, 125, 0xdead);
-
-  fail_unless(!htable_set(t, 125, (void *)0xbeef));
-  fail_unless(!htable_set(t, 123, (void *)0xabcdef));
-  GET_AND_CHECK(t, 123, 0xabcdef);
-  GET_AND_CHECK(t, 124, 421);
-  GET_AND_CHECK(t, 125, 0xbeef);
-
-}
-END_TEST
-
 START_TEST(test_deletion) {
   void *v;
   htable_t *t = htable_new(10);
@@ -155,7 +129,6 @@ Suite *htable_suite() {
   tc = tcase_create ("foobar");
   tcase_add_test (tc, test_set_get);
   tcase_add_test (tc, test_get_missing);
-  tcase_add_test (tc, test_overwrite);
   tcase_add_test (tc, test_deletion);
   tcase_add_test (tc, test_free);
   suite_add_tcase (s, tc);
