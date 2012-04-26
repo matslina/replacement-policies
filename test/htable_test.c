@@ -4,9 +4,9 @@
 #define GET_AND_CHECK(t, k, v)                          \
   do {                                                  \
     void *val;                                          \
-    fail_unless(!htable_get(t, k, (void **)&val));       \
+    fail_unless(!htable_get(t, k, (void **)&val));      \
     fail_unless(val == (void *)v,                       \
-                "expected %x got %x", v, val);         \
+                "expected %x got %x", v, val);          \
   } while (0)
 
 
@@ -34,6 +34,68 @@ START_TEST(test_set_get) {
   GET_AND_CHECK(t, 2, 102);
   GET_AND_CHECK(t, 0xdeadbeefdeadbeefLL, 0xcafebabe);
   GET_AND_CHECK(t, 4711, NULL);
+
+  htable_free(&t);
+  fail_unless(t == NULL);
+}
+END_TEST
+
+START_TEST(test_set_full) {
+  htable_t *t = htable_new(5);
+
+  fail_unless(!htable_set(t, 1, (void *)101));
+  fail_unless(!htable_set(t, 2, (void *)102));
+  fail_unless(!htable_set(t, 3, (void *)103));
+  fail_unless(!htable_set(t, 4, (void *)104));
+  fail_unless(!htable_set(t, 5, (void *)105));
+  GET_AND_CHECK(t, 1, 101);
+  GET_AND_CHECK(t, 2, 102);
+  GET_AND_CHECK(t, 3, 103);
+  GET_AND_CHECK(t, 4, 104);
+  GET_AND_CHECK(t, 5, 105);
+
+  fail_unless(-1 == htable_set(t, 1, (void *)1231));
+  fail_unless(-1 == htable_set(t, 6, (void *)1231));
+}
+END_TEST
+
+START_TEST(test_stacking) {
+  htable_t *t = htable_new(10);
+
+  /* push */
+  fail_unless(!htable_set(t, 42, (void *)1337));
+  GET_AND_CHECK(t, 42, 1337);
+
+  /* push */
+  fail_unless(!htable_set(t, 42, (void *)12));
+  GET_AND_CHECK(t, 42, 12);
+
+  /* push */
+  fail_unless(!htable_set(t, 42, (void *)NULL));
+  GET_AND_CHECK(t, 42, NULL);
+
+  /* pop */
+  fail_unless(!htable_del(t, 42));
+  GET_AND_CHECK(t, 42, 12);
+
+  /* pop */
+  fail_unless(!htable_del(t, 42));
+  GET_AND_CHECK(t, 42, 1337);
+
+  /* push */
+  fail_unless(!htable_set(t, 42, (void *)44444));
+  GET_AND_CHECK(t, 42, 44444);
+
+  /* pop */
+  fail_unless(!htable_del(t, 42));
+  GET_AND_CHECK(t, 42, 1337);
+
+  /* pop */
+  fail_unless(!htable_del(t, 42));
+  fail_unless(1 == htable_get(t, 42, NULL));
+
+  htable_free(&t);
+  fail_unless(t == NULL);
 }
 END_TEST
 
@@ -54,6 +116,9 @@ START_TEST(test_get_missing) {
   GET_AND_CHECK(t, 42, 1337);
 
   fail_unless(1 == htable_get(t, 1, &v));
+
+  htable_free(&t);
+  fail_unless(t == NULL);
 }
 END_TEST
 
@@ -110,6 +175,8 @@ START_TEST(test_deletion) {
   fail_unless(1 == htable_get(t, 128, &v));
   fail_unless(1 == htable_get(t, 129, &v));
 
+  htable_free(&t);
+  fail_unless(t == NULL);
 }
 END_TEST
 
@@ -131,6 +198,8 @@ Suite *htable_suite() {
   tcase_add_test (tc, test_get_missing);
   tcase_add_test (tc, test_deletion);
   tcase_add_test (tc, test_free);
+  tcase_add_test (tc, test_stacking);
+  tcase_add_test (tc, test_set_full);
   suite_add_tcase (s, tc);
 
   return s;
