@@ -360,6 +360,61 @@ START_TEST(test_make_newest_oldest) {
 }
 END_TEST
 
+START_TEST(test_pop_newest_oldest) {
+  uint64_t key;
+  void *val;
+  lhtable_t *t = lhtable_new(5);
+
+  /* can't pop newest or oldest without entries */
+  fail_unless(-1 == lhtable_pop_newest(t, &key, &val));
+  fail_unless(-1 == lhtable_pop_oldest(t, &key, &val));
+
+  /* fill the table */
+  fail_unless(!lhtable_set(t, 0, (void *)100));
+  fail_unless(!lhtable_set(t, 1, (void *)101));
+  fail_unless(!lhtable_set(t, 2, (void *)102));
+  fail_unless(!lhtable_set(t, 3, (void *)103));
+  fail_unless(!lhtable_set(t, 4, (void *)104));
+  fail_unless(-1 == lhtable_set(t, 5, (void *)105));
+
+  /* pop_newest/oldest give the newest/oldest entries */
+  fail_unless(!lhtable_pop_newest(t, &key, &val));
+  fail_unless(key == 4 && val == (void *)104);
+  fail_unless(!lhtable_pop_oldest(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+
+  /* popped entries can't be retrieved */
+  fail_unless(1 == lhtable_get(t, 4, &val));
+  fail_unless(1 == lhtable_get(t, 0, &val));
+
+  /* we can consume all entries this way */
+  fail_unless(!lhtable_pop_newest(t, &key, &val));
+  fail_unless(key == 3 && val == (void *)103);
+  fail_unless(!lhtable_pop_oldest(t, &key, &val));
+  fail_unless(key == 1 && val == (void *)101);
+  fail_unless(!lhtable_pop_oldest(t, &key, &val));
+  fail_unless(key == 2 && val == (void *)102);
+  fail_unless(-1 == lhtable_pop_oldest(t, &key, &val));
+
+  /* adding and popping a few more entries for fun */
+  fail_unless(!lhtable_set(t, 5, (void *)105));
+  fail_unless(!lhtable_set(t, 6, (void *)106));
+  fail_unless(!lhtable_set(t, 7, (void *)107));
+  fail_unless(!lhtable_set(t, 8, (void *)108));
+  fail_unless(!lhtable_pop_oldest(t, &key, &val));
+  fail_unless(key == 5 && val == (void *)105);
+  fail_unless(!lhtable_pop_newest(t, &key, &val));
+  fail_unless(key == 8 && val == (void *)108);
+  fail_unless(!lhtable_pop_oldest(t, &key, &val));
+  fail_unless(key == 6 && val == (void *)106);
+  fail_unless(!lhtable_pop_newest(t, &key, &val));
+  fail_unless(key == 7 && val == (void *)107);
+
+  lhtable_free(&t);
+  fail_unless(t == NULL);
+}
+END_TEST
+
 Suite *lhtable_suite() {
   TCase *tc;
   Suite *s;
@@ -379,6 +434,7 @@ Suite *lhtable_suite() {
   tcase_add_test (tc, test_pop);
   tcase_add_test (tc, test_get_newest_oldest);
   tcase_add_test (tc, test_make_newest_oldest);
+  tcase_add_test (tc, test_pop_newest_oldest);
   suite_add_tcase (s, tc);
   return s;
 }

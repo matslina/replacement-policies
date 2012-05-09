@@ -252,6 +252,20 @@ int lhtable_get_oldest(lhtable_t *t, uint64_t *key, void **val) {
   return 0;
 }
 
+int lhtable_pop_newest(lhtable_t *t, uint64_t *key, void **val) {
+  if (!t->lfirst)
+    return -1;
+  *key = t->lfirst->key;
+  return lhtable_pop(t, *key, val);
+}
+
+int lhtable_pop_oldest(lhtable_t *t, uint64_t *key, void **val) {
+  if (!t->llast)
+    return -1;
+  *key = t->llast->key;
+  return lhtable_pop(t, *key, val);
+}
+
 int lhtable_make_newest(lhtable_t *t, uint64_t key) {
   int rc;
   struct lhtable_record *rec;
@@ -294,4 +308,16 @@ int lhtable_make_oldest(lhtable_t *t, uint64_t key) {
   t->llast = rec;
 
   return 0;
+}
+
+int lhtable_del_newest(lhtable_t *t) {
+  if (!t->lfirst)
+    return -1;
+  return lhtable_del(t, t->lfirst->key);
+}
+
+int lhtable_del_oldest(lhtable_t *t) {
+  if (!t->llast)
+    return -1;
+  return lhtable_del(t, t->llast->key);
 }

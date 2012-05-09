@@ -26,6 +26,9 @@ lhtable_t *lhtable_new(size_t entries);
  */
 void lhtable_free(lhtable_t **t);
 
+/* Returns the number of entries in t */
+size_t lhtable_size(lhtable_t *t);
+
 /* Sets value for key
  *
  * Returns 0 on sucess
@@ -68,6 +71,20 @@ int lhtable_get_newest(lhtable_t *t, uint64_t *key, void **val);
  */
 int lhtable_get_oldest(lhtable_t *t, uint64_t *key, void **val);
 
+/* Retrieves and deletes the most recently set entry's key and value
+ *
+ * Returns 0 on success
+ *        -1 if lhtable is empty
+ */
+int lhtable_pop_newest(lhtable_t *t, uint64_t *key, void **val);
+
+/* Retrieves and deletes the least recently set entry's key and value
+ *
+ * Returns 0 on success
+ *        -1 if lhtable is empty
+ */
+int lhtable_pop_oldest(lhtable_t *t, uint64_t *key, void **val);
+
 /* Promotes entry by key to newest in list
  *
  * Returns 0 on success
@@ -81,6 +98,21 @@ int lhtable_make_newest(lhtable_t *t, uint64_t key);
  *         1 if entry was not found
  */
 int lhtable_make_oldest(lhtable_t *t, uint64_t key);
+
+/* Deletes the newest entry by key
+ *
+ * Returns 0 on success
+ *        -1 if lhtable is empty
+ */
+int lhtable_del_newest(lhtable_t *t);
+
+/* Deletes the oldest entry by key
+ *
+ * Returns 0 on success
+ *        -1 if lhtable is empty
+ */
+int lhtable_del_oldest(lhtable_t *t);
+
 
 void lhtable_pt(lhtable_t *t);
 void lhtable_pl(lhtable_t *t);
