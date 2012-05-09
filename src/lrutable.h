@@ -1,5 +1,5 @@
-#ifndef LHTABLE_H_80f7cf7ab604837c37e8007aaaf9e273
-#define LHTABLE_H_80f7cf7ab604837c37e8007aaaf9e273
+#ifndef LRUTABLE_H_80f7cf7ab604837c37e8007aaaf9e273
+#define LRUTABLE_H_80f7cf7ab604837c37e8007aaaf9e273
 
 /* Linked hash table mapping unsigned 64 bit integer to void pointer.
  *
@@ -12,110 +12,110 @@
 
 #include <stdint.h>
 
-typedef struct lhtable_s lhtable_t;
+typedef struct lrutable_s lrutable_t;
 
 /* Allocates a new linked table of the given capacity.
  *
  * Returns NULL if out of memory.
  */
-lhtable_t *lhtable_new(size_t entries);
+lrutable_t *lrutable_new(size_t entries);
 
 /* Destroys a table and releases all associated resources
  *
  * The htable pointer at *h will be set to NULL
  */
-void lhtable_free(lhtable_t **t);
+void lrutable_free(lrutable_t **t);
 
 /* Returns the number of entries in t */
-size_t lhtable_size(lhtable_t *t);
+size_t lrutable_size(lrutable_t *t);
 
 /* Sets value for key
  *
  * Returns 0 on sucess
  *        -1 if the table is full
  */
-int lhtable_set(lhtable_t *t, uint64_t key, void *val);
+int lrutable_set(lrutable_t *t, uint64_t key, void *val);
 
 /* Retrieves value by key
  *
  * Returns 0 on success
  *         1 if key was not found
  */
-int lhtable_get(lhtable_t *t, uint64_t key, void **val);
+int lrutable_get(lrutable_t *t, uint64_t key, void **val);
 
 /* Deletes entry by key
  *
  * Returns 0 on success
  *         1 if entry was not found
  */
-int lhtable_del(lhtable_t *t, uint64_t key);
+int lrutable_del(lrutable_t *t, uint64_t key);
 
 /* Retrieves and deletes entry by key
  *
  * Returns 0 on success
  *         1 if entry was not found
  */
-int lhtable_pop(lhtable_t *t, uint64_t key, void **val);
+int lrutable_pop(lrutable_t *t, uint64_t key, void **val);
 
 /* Retrieves the most recently set entry's key and value
  *
  * Returns 0 on success
- *        -1 if lhtable is empty
+ *        -1 if lrutable is empty
  */
-int lhtable_get_newest(lhtable_t *t, uint64_t *key, void **val);
+int lrutable_get_newest(lrutable_t *t, uint64_t *key, void **val);
 
 /* Retrieves the least recently set entry's key and value
  *
  * Returns 0 on success
- *        -1 if lhtable is empty
+ *        -1 if lrutable is empty
  */
-int lhtable_get_oldest(lhtable_t *t, uint64_t *key, void **val);
+int lrutable_get_oldest(lrutable_t *t, uint64_t *key, void **val);
 
 /* Retrieves and deletes the most recently set entry's key and value
  *
  * Returns 0 on success
- *        -1 if lhtable is empty
+ *        -1 if lrutable is empty
  */
-int lhtable_pop_newest(lhtable_t *t, uint64_t *key, void **val);
+int lrutable_pop_newest(lrutable_t *t, uint64_t *key, void **val);
 
 /* Retrieves and deletes the least recently set entry's key and value
  *
  * Returns 0 on success
- *        -1 if lhtable is empty
+ *        -1 if lrutable is empty
  */
-int lhtable_pop_oldest(lhtable_t *t, uint64_t *key, void **val);
+int lrutable_pop_oldest(lrutable_t *t, uint64_t *key, void **val);
 
 /* Promotes entry by key to newest in list
  *
  * Returns 0 on success
  *         1 if entry was not found
  */
-int lhtable_make_newest(lhtable_t *t, uint64_t key);
+int lrutable_make_newest(lrutable_t *t, uint64_t key);
 
 /* Demotes entry by key to oldest in list
  *
  * Returns 0 on success
  *         1 if entry was not found
  */
-int lhtable_make_oldest(lhtable_t *t, uint64_t key);
+int lrutable_make_oldest(lrutable_t *t, uint64_t key);
 
 /* Deletes the newest entry by key
  *
  * Returns 0 on success
- *        -1 if lhtable is empty
+ *        -1 if lrutable is empty
  */
-int lhtable_del_newest(lhtable_t *t);
+int lrutable_del_newest(lrutable_t *t);
 
 /* Deletes the oldest entry by key
  *
  * Returns 0 on success
- *        -1 if lhtable is empty
+ *        -1 if lrutable is empty
  */
-int lhtable_del_oldest(lhtable_t *t);
+int lrutable_del_oldest(lrutable_t *t);
 
 
-void lhtable_pt(lhtable_t *t);
-void lhtable_pl(lhtable_t *t);
+void lrutable_pt(lrutable_t *t);
+void lrutable_pl(lrutable_t *t);
 
 
 #endif

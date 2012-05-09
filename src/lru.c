@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <assert.h>
-#include "lhtable.h"
+#include "lrutable.h"
 #include "lru.h"
 
 #include <stdio.h>
 
 struct lru_s {
-  lhtable_t *t;
+  lrutable_t *t;
   size_t size;
   size_t nmemb;
   size_t active;
@@ -22,7 +22,7 @@ lru_t *lru_new(size_t size, size_t nmemb) {
   if (!lru)
     return NULL;
 
-  lru->t = lhtable_new(nmemb);
+  lru->t = lrutable_new(nmemb);
   if (!lru->t) {
     free(lru);
     return NULL;
@@ -48,8 +48,8 @@ int lru_fetch(lru_t *lru, uint64_t key, void **ptr) {
   uint64_t k;
 
   /* hit cache */
-  if (!lhtable_get(lru->t, key, (void *)&data)) {
-    lhtable_make_newest(lru->t, key);
+  if (!lrutable_get(lru->t, key, (void *)&data)) {
+    lrutable_make_newest(lru->t, key);
     *ptr = data;
     return 0;
   }
@@ -59,14 +59,14 @@ int lru_fetch(lru_t *lru, uint64_t key, void **ptr) {
     val = lru->data + lru->active * lru->size;
     lru->active++;
   } else {
-    rc = lhtable_get_oldest(lru->t, &k, &val);
+    rc = lrutable_get_oldest(lru->t, &k, &val);
     assert (rc == 0);
-    rc = lhtable_del(lru->t, k);
+    rc = lrutable_del(lru->t, k);
     assert (rc == 0);
   }
 
   /* insert as LRU */
-  rc = lhtable_set(lru->t, key, val);
+  rc = lrutable_set(lru->t, key, val);
   assert (rc == 0);
 
   *ptr = val;
@@ -76,7 +76,7 @@ int lru_fetch(lru_t *lru, uint64_t key, void **ptr) {
 
 void lru_free(lru_t **lru) {
   free((*lru)->data);
-  lhtable_free(&(*lru)->t);
+  lrutable_free(&(*lru)->t);
   free(*lru);
   *lru = NULL;
 }

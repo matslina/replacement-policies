@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
-#include "lhtable.h"
+#include "lrutable.h"
 #include "slru.h"
 
 #include <stdio.h>
@@ -10,8 +10,8 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 struct slru_s {
-  lhtable_t *A_t;
-  lhtable_t *B_t;
+  lrutable_t *A_t;
+  lrutable_t *B_t;
   void *data;
   size_t A_max;
   size_t A_size;
@@ -46,16 +46,16 @@ slru_t *slru_new(size_t size, size_t nmemb) {
     return NULL;
   }
 
-  slru->A_t = lhtable_new(slru->A_max);
+  slru->A_t = lrutable_new(slru->A_max);
   if (!slru->A_t) {
     free(slru->data);
     free(slru);
     return NULL;
   }
 
-  slru->B_t = lhtable_new(slru->B_max);
+  slru->B_t = lrutable_new(slru->B_max);
   if (!slru->B_t) {
-    lhtable_free(&slru->B_t);
+    lrutable_free(&slru->B_t);
     free(slru->data);
     free(slru);
     return NULL;
@@ -76,25 +76,25 @@ static int slru_get(slru_t *slru, uint64_t key, void **ptr) {
   uint64_t k;
 
   /* hit A */
-  if (!lhtable_get(slru->A_t, key, &data)) {
-    lhtable_make_newest(slru->A_t, key);
+  if (!lrutable_get(slru->A_t, key, &data)) {
+    lrutable_make_newest(slru->A_t, key);
     *ptr = data;
     return 0;
   }
 
   /* else check B, promote to A MRU if found */
-  if (!lhtable_pop(slru->B_t, key, &data)) {
+  if (!lrutable_pop(slru->B_t, key, &data)) {
     slru->B_size--;
 
     /* if A is full, we demote A's LRU to B */
     if (slru->A_size >= slru->A_max) {
-      lhtable_pop_oldest(slru->A_t, &k, &v);
-      lhtable_set(slru->B_t, k, v);
+      lrutable_pop_oldest(slru->A_t, &k, &v);
+      lrutable_set(slru->B_t, k, v);
       slru->A_size--;
       slru->B_size++;
     }
 
-    lhtable_set(slru->A_t, key, data);
+    lrutable_set(slru->A_t, key, data);
     slru->A_size++;
     *ptr = data;
 
@@ -124,11 +124,11 @@ int slru_fetch(slru_t *slru, uint64_t key, void **ptr) {
     data = slru->data + slru->active * slru->size;
     slru->active++;
   } else {
-    lhtable_pop_oldest(slru->B_t, &k, &data);
+    lrutable_pop_oldest(slru->B_t, &k, &data);
     slru->B_size--;
   }
 
-  lhtable_set(slru->B_t, key, data);
+  lrutable_set(slru->B_t, key, data);
   slru->B_size++;
   *ptr = data;
 
@@ -137,8 +137,8 @@ int slru_fetch(slru_t *slru, uint64_t key, void **ptr) {
 
 void slru_free(slru_t **slru) {
   free((*slru)->data);
-  lhtable_free(&(*slru)->A_t);
-  lhtable_free(&(*slru)->B_t);
+  lrutable_free(&(*slru)->A_t);
+  lrutable_free(&(*slru)->B_t);
   free(*slru);
   *slru = NULL;
 }

@@ -1,28 +1,28 @@
 #include <stdlib.h>
 #include <assert.h>
-#include "lhtable.h"
+#include "lrutable.h"
 
 #include <stdio.h>
 
-struct lhtable_record {
+struct lrutable_record {
   uint64_t key;
   void *val;
-  struct lhtable_record *tnext;
-  struct lhtable_record *lnext;
-  struct lhtable_record *lprev;
+  struct lrutable_record *tnext;
+  struct lrutable_record *lnext;
+  struct lrutable_record *lprev;
 };
 
-struct lhtable_s {
-  struct lhtable_record **table;
-  struct lhtable_record *record;
-  struct lhtable_record *lfirst;
-  struct lhtable_record *llast;
-  struct lhtable_record *free;
+struct lrutable_s {
+  struct lrutable_record **table;
+  struct lrutable_record *record;
+  struct lrutable_record *lfirst;
+  struct lrutable_record *llast;
+  struct lrutable_record *free;
   size_t capacity;
 };
 
-void lhtable_pt(lhtable_t *t) {
-  struct lhtable_record *rec;
+void lrutable_pt(lrutable_t *t) {
+  struct lrutable_record *rec;
   int i;
 
   for (i=0; i<t->capacity; i++) {
@@ -36,8 +36,8 @@ void lhtable_pt(lhtable_t *t) {
   }
 }
 
-void lhtable_pl(lhtable_t *t) {
-  struct lhtable_record *rec;
+void lrutable_pl(lrutable_t *t) {
+  struct lrutable_record *rec;
   int i;
 
   for (i=0, rec=t->lfirst;
@@ -66,21 +66,21 @@ static int hash64shift(uint64_t k, int mod) {
   return k % mod;
 }
 
-lhtable_t *lhtable_new(size_t capacity) {
+lrutable_t *lrutable_new(size_t capacity) {
   int i;
-  lhtable_t *t;
+  lrutable_t *t;
 
-  t = calloc(1, sizeof(lhtable_t));
+  t = calloc(1, sizeof(lrutable_t));
   if (!t)
     return NULL;
 
-  t->record = malloc(capacity * sizeof(struct lhtable_record));
+  t->record = malloc(capacity * sizeof(struct lrutable_record));
   if (!t->record) {
     free(t);
     return NULL;
   }
 
-  t->table = calloc(capacity, sizeof(struct lhtable_record *));
+  t->table = calloc(capacity, sizeof(struct lrutable_record *));
   if (!t->table) {
     free(t->record);
     free(t);
@@ -97,16 +97,16 @@ lhtable_t *lhtable_new(size_t capacity) {
   return t;
 }
 
-void lhtable_free(lhtable_t **t) {
+void lrutable_free(lrutable_t **t) {
   free((*t)->record);
   free((*t)->table);
   free(*t);
   *t = NULL;
 }
 
-int lhtable_set(lhtable_t *t, uint64_t key, void *val) {
+int lrutable_set(lrutable_t *t, uint64_t key, void *val) {
   int h;
-  struct lhtable_record *rec;
+  struct lrutable_record *rec;
 
   /* grab a record from the free list */
   rec = t->free;
@@ -143,12 +143,12 @@ int lhtable_set(lhtable_t *t, uint64_t key, void *val) {
  * Returns 0 on success,
  *         1 if key is not found
  */
-static int lookup_record(lhtable_t *t, uint64_t key,
+static int lookup_record(lrutable_t *t, uint64_t key,
                          int *tpos,
-                         struct lhtable_record **rec,
-                         struct lhtable_record **tprev) {
+                         struct lrutable_record **rec,
+                         struct lrutable_record **tprev) {
   int h;
-  struct lhtable_record *r, *p;
+  struct lrutable_record *r, *p;
 
   h = hash64shift(key, t->capacity);
   r = t->table[h];
@@ -174,7 +174,7 @@ static int lookup_record(lhtable_t *t, uint64_t key,
  * The record will still remain the hash table. It will not be placed
  * on the free list.
  */
-static void list_disconnect(lhtable_t *t, struct lhtable_record *rec) {
+static void list_disconnect(lrutable_t *t, struct lrutable_record *rec) {
   if (rec->lprev)
     rec->lprev->lnext = rec->lnext;
   else
@@ -185,9 +185,9 @@ static void list_disconnect(lhtable_t *t, struct lhtable_record *rec) {
     t->llast = rec->lprev;
 }
 
-int lhtable_get(lhtable_t *t, uint64_t key, void **val) {
+int lrutable_get(lrutable_t *t, uint64_t key, void **val) {
   int rc;
-  struct lhtable_record *rec;
+  struct lrutable_record *rec;
 
   rc = lookup_record(t, key, NULL, &rec, NULL);
   if (rc)
@@ -203,9 +203,9 @@ int lhtable_get(lhtable_t *t, uint64_t key, void **val) {
  * Returns 0 on success
  *         1 if entry was not found
  */
-int lhtable_pop(lhtable_t *t, uint64_t key, void **val) {
+int lrutable_pop(lrutable_t *t, uint64_t key, void **val) {
   int rc, h;
-  struct lhtable_record *rec, *tprev;
+  struct lrutable_record *rec, *tprev;
 
   rc = lookup_record(t, key, &h, &rec, &tprev);
   if (rc)
@@ -227,12 +227,12 @@ int lhtable_pop(lhtable_t *t, uint64_t key, void **val) {
   return 0;
 }
 
-int lhtable_del(lhtable_t *t, uint64_t key) {
+int lrutable_del(lrutable_t *t, uint64_t key) {
   void *val;
-  return lhtable_pop(t, key, &val);
+  return lrutable_pop(t, key, &val);
 }
 
-int lhtable_get_newest(lhtable_t *t, uint64_t *key, void **val) {
+int lrutable_get_newest(lrutable_t *t, uint64_t *key, void **val) {
   if (!t->lfirst)
     return -1;
 
@@ -242,7 +242,7 @@ int lhtable_get_newest(lhtable_t *t, uint64_t *key, void **val) {
   return 0;
 }
 
-int lhtable_get_oldest(lhtable_t *t, uint64_t *key, void **val) {
+int lrutable_get_oldest(lrutable_t *t, uint64_t *key, void **val) {
   if (!t->llast)
     return -1;
 
@@ -252,23 +252,23 @@ int lhtable_get_oldest(lhtable_t *t, uint64_t *key, void **val) {
   return 0;
 }
 
-int lhtable_pop_newest(lhtable_t *t, uint64_t *key, void **val) {
+int lrutable_pop_newest(lrutable_t *t, uint64_t *key, void **val) {
   if (!t->lfirst)
     return -1;
   *key = t->lfirst->key;
-  return lhtable_pop(t, *key, val);
+  return lrutable_pop(t, *key, val);
 }
 
-int lhtable_pop_oldest(lhtable_t *t, uint64_t *key, void **val) {
+int lrutable_pop_oldest(lrutable_t *t, uint64_t *key, void **val) {
   if (!t->llast)
     return -1;
   *key = t->llast->key;
-  return lhtable_pop(t, *key, val);
+  return lrutable_pop(t, *key, val);
 }
 
-int lhtable_make_newest(lhtable_t *t, uint64_t key) {
+int lrutable_make_newest(lrutable_t *t, uint64_t key) {
   int rc;
-  struct lhtable_record *rec;
+  struct lrutable_record *rec;
 
   rc = lookup_record(t, key, NULL, &rec, NULL);
   if (rc)
@@ -288,9 +288,9 @@ int lhtable_make_newest(lhtable_t *t, uint64_t key) {
   return 0;
 }
 
-int lhtable_make_oldest(lhtable_t *t, uint64_t key) {
+int lrutable_make_oldest(lrutable_t *t, uint64_t key) {
   int rc;
-  struct lhtable_record *rec;
+  struct lrutable_record *rec;
 
   rc = lookup_record(t, key, NULL, &rec, NULL);
   if (rc)
@@ -310,14 +310,14 @@ int lhtable_make_oldest(lhtable_t *t, uint64_t key) {
   return 0;
 }
 
-int lhtable_del_newest(lhtable_t *t) {
+int lrutable_del_newest(lrutable_t *t) {
   if (!t->lfirst)
     return -1;
-  return lhtable_del(t, t->lfirst->key);
+  return lrutable_del(t, t->lfirst->key);
 }
 
-int lhtable_del_oldest(lhtable_t *t) {
+int lrutable_del_oldest(lrutable_t *t) {
   if (!t->llast)
     return -1;
-  return lhtable_del(t, t->llast->key);
+  return lrutable_del(t, t->llast->key);
 }
