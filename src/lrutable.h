@@ -3,11 +3,15 @@
 
 /* Linked hash table mapping unsigned 64 bit integer to void pointer.
  *
+ * This is a superset of the functionality provided by htable.c,
+ * providing the ability to operate on the least recently used (LRU)
+ * entry.
+ *
+ * Note that lrutable_set() and lrutable_get() both promote the entry
+ * to MRU. No other operation will affect this ordering.
+ *
  * Entries with identical keys are stacked, i.e. get(), del(), etc,
  * will operate on the latest set() entry.
- *
- * New entries are prepended to a linked list, thereby preserving the
- * order of insertion (although in some sense reversed).
  */
 
 #include <stdint.h>
@@ -43,13 +47,6 @@ int lrutable_set(lrutable_t *t, uint64_t key, void *val);
  */
 int lrutable_get(lrutable_t *t, uint64_t key, void **val);
 
-/* Deletes entry by key
- *
- * Returns 0 on success
- *         1 if entry was not found
- */
-int lrutable_del(lrutable_t *t, uint64_t key);
-
 /* Retrieves and deletes entry by key
  *
  * Returns 0 on success
@@ -57,64 +54,40 @@ int lrutable_del(lrutable_t *t, uint64_t key);
  */
 int lrutable_pop(lrutable_t *t, uint64_t key, void **val);
 
-/* Retrieves the most recently set entry's key and value
- *
- * Returns 0 on success
- *        -1 if lrutable is empty
- */
-int lrutable_get_newest(lrutable_t *t, uint64_t *key, void **val);
-
-/* Retrieves the least recently set entry's key and value
- *
- * Returns 0 on success
- *        -1 if lrutable is empty
- */
-int lrutable_get_oldest(lrutable_t *t, uint64_t *key, void **val);
-
-/* Retrieves and deletes the most recently set entry's key and value
- *
- * Returns 0 on success
- *        -1 if lrutable is empty
- */
-int lrutable_pop_newest(lrutable_t *t, uint64_t *key, void **val);
-
-/* Retrieves and deletes the least recently set entry's key and value
- *
- * Returns 0 on success
- *        -1 if lrutable is empty
- */
-int lrutable_pop_oldest(lrutable_t *t, uint64_t *key, void **val);
-
-/* Promotes entry by key to newest in list
+/* Deletes entry by key
  *
  * Returns 0 on success
  *         1 if entry was not found
  */
-int lrutable_make_newest(lrutable_t *t, uint64_t key);
+int lrutable_del(lrutable_t *t, uint64_t key);
 
-/* Demotes entry by key to oldest in list
- *
- * Returns 0 on success
- *         1 if entry was not found
- */
-int lrutable_make_oldest(lrutable_t *t, uint64_t key);
-
-/* Deletes the newest entry by key
+/* Retrieves the least recently used entry
  *
  * Returns 0 on success
  *        -1 if lrutable is empty
  */
-int lrutable_del_newest(lrutable_t *t);
+int lrutable_get_lru(lrutable_t *t, uint64_t *key, void **val);
 
-/* Deletes the oldest entry by key
+/* Retrieves and deletes the least recently used entry
  *
  * Returns 0 on success
  *        -1 if lrutable is empty
  */
-int lrutable_del_oldest(lrutable_t *t);
+int lrutable_pop_lru(lrutable_t *t, uint64_t *key, void **val);
 
+/* Deletes the least recently used entry
+ *
+ * Returns 0 on success
+ *        -1 if lrutable is empty
+ */
+int lrutable_del_lru(lrutable_t *t);
 
+/* Prints the table component of t to stderr
+ */
 void lrutable_pt(lrutable_t *t);
+
+/* Prints the list component of t to stderr
+ */
 void lrutable_pl(lrutable_t *t);
 
 

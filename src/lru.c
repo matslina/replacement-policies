@@ -43,31 +43,23 @@ lru_t *lru_new(size_t size, size_t nmemb) {
 }
 
 int lru_fetch(lru_t *lru, uint64_t key, void **ptr) {
-  int rc;
   void *data, *val;
   uint64_t k;
 
   /* hit cache */
-  if (!lrutable_get(lru->t, key, (void *)&data)) {
-    lrutable_make_newest(lru->t, key);
-    *ptr = data;
+  if (!lrutable_get(lru->t, key, ptr))
     return 0;
-  }
 
   /* create new page if possible, evict LRU otherwise */
   if (lru->active < lru->nmemb) {
     val = lru->data + lru->active * lru->size;
     lru->active++;
   } else {
-    rc = lrutable_get_oldest(lru->t, &k, &val);
-    assert (rc == 0);
-    rc = lrutable_del(lru->t, k);
-    assert (rc == 0);
+    lrutable_pop_lru(lru->t, &k, &val);
   }
 
   /* insert as LRU */
-  rc = lrutable_set(lru->t, key, val);
-  assert (rc == 0);
+  lrutable_set(lru->t, key, val);
 
   *ptr = val;
 

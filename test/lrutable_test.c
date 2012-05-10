@@ -200,220 +200,197 @@ END_TEST
  *  (stuff not in htable_test.c) *
  ********************************/
 
-START_TEST(test_pop) {
+START_TEST(test_get_lru) {
+  uint64_t key;
   void *val;
   lrutable_t *t = lrutable_new(5);
 
-  /* fill the table */
+  /* empty table has no LRU */
+  fail_unless(-1 == lrutable_get_lru(t, &key, &val));
+
+  /* single element must be LRU */
   fail_unless(!lrutable_set(t, 0, (void *)100));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+
+  /* with many elements, the last set is the LRU */
   fail_unless(!lrutable_set(t, 1, (void *)101));
   fail_unless(!lrutable_set(t, 2, (void *)102));
   fail_unless(!lrutable_set(t, 3, (void *)103));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+
+  /* the get_lru operation does not turn LRU into MRU */
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+
+  /* filling the table doesn't muck this up */
   fail_unless(!lrutable_set(t, 4, (void *)104));
   fail_unless(-1 == lrutable_set(t, 5, (void *)105));
 
-  /* can't pop entries not set */
-  fail_unless(1 == lrutable_pop(t, 5, &val));
-  fail_unless(1 == lrutable_pop(t, 6, &val));
-  fail_unless(1 == lrutable_pop(t, 7, &val));
-  fail_unless(1 == lrutable_pop(t, 8, &val));
-  fail_unless(1 == lrutable_pop(t, 9, &val));
-  fail_unless(1 == lrutable_pop(t, 10, &val));
-  fail_unless(1 == lrutable_pop(t, 11, &val));
-
-  /* set entries can be popped */
-  fail_unless(!lrutable_pop(t, 1, &val));
-  fail_unless(val == (void *)101);
-  fail_unless(!lrutable_pop(t, 4, &val));
-  fail_unless(val == (void *)104);
-
-  /* popped entries can't be retrieved or popped */
-  fail_unless(1 == lrutable_get(t, 1, &val));
-  fail_unless(1 == lrutable_pop(t, 1, &val));
-  fail_unless(1 == lrutable_get(t, 4, &val));
-  fail_unless(1 == lrutable_pop(t, 4, &val));
-
-  /* popping made room for new entries */
-  fail_unless(!lrutable_set(t, 0, (void *)105));
-  fail_unless(!lrutable_set(t, 1, (void *)106));
-
-  /* multiple entries with same keys are popped as if stacked */
-  fail_unless(!lrutable_pop(t, 0, &val));
-  fail_unless(val == (void *)105);
-  fail_unless(!lrutable_pop(t, 0, &val));
-  fail_unless(val == (void *)100);
-  fail_unless(1 == lrutable_pop(t, 0, &val));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
 
   lrutable_free(&t);
   fail_unless(t == NULL);
 }
 END_TEST
 
-START_TEST(test_get_newest_oldest) {
+START_TEST(test_pop_lru) {
   uint64_t key;
   void *val;
   lrutable_t *t = lrutable_new(5);
 
-  /* there is no newest or oldest element at this point */
-  fail_unless(-1 == lrutable_get_newest(t, &key, &val));
-  fail_unless(-1 == lrutable_get_oldest(t, &key, &val));
+  /* empty table has no LRU */
+  fail_unless(-1 == lrutable_pop_lru(t, &key, &val));
 
-  /* fill the table */
+  /* single element can be popped */
   fail_unless(!lrutable_set(t, 0, (void *)100));
-  fail_unless(!lrutable_set(t, 1, (void *)101));
-  fail_unless(!lrutable_set(t, 2, (void *)102));
-  fail_unless(!lrutable_set(t, 3, (void *)103));
-  fail_unless(!lrutable_set(t, 4, (void *)104));
-  fail_unless(-1 == lrutable_set(t, 5, (void *)105));
-
-  /* last to be set was 4, oldest should be 0 */
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 4 && val == (void *)104);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
+  fail_unless(!lrutable_pop_lru(t, &key, &val));
   fail_unless(key == 0 && val == (void *)100);
 
-  /* deleting an element in the middle doesn't change that */
-  fail_unless(!lrutable_del(t, 2));
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 4 && val == (void *)104);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
-  fail_unless(key == 0 && val == (void *)100);
-
-  /* deleting the newest and oldest does however change that */
-  fail_unless(!lrutable_del(t, 0));
-  fail_unless(!lrutable_del(t, 4));
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 3 && val == (void *)103);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
-  fail_unless(key == 1 && val == (void *)101);
-
-  /* new insertions change only the newest */
-  fail_unless(!lrutable_set(t, 5, (void *)105));
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 5 && val == (void *)105);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
-  fail_unless(key == 1 && val == (void *)101);
-
-  /* single element is both newest and oldest */
-  fail_unless(!lrutable_del(t, 1));
-  fail_unless(!lrutable_del(t, 5));
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 3 && val == (void *)103);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
-  fail_unless(key == 3 && val == (void *)103);
-
-  /* no elements still means no newest or oldest */
-  fail_unless(!lrutable_del(t, 3));
-  fail_unless(-1 == lrutable_get_newest(t, &key, &val));
-  fail_unless(-1 == lrutable_get_oldest(t, &key, &val));
-
-  lrutable_free(&t);
-  fail_unless(t == NULL);
-}
-END_TEST
-
-START_TEST(test_make_newest_oldest) {
-  uint64_t key;
-  void *val;
-  lrutable_t *t = lrutable_new(5);
-
-  /* fill the table */
-  fail_unless(!lrutable_set(t, 0, (void *)100));
-  fail_unless(!lrutable_set(t, 1, (void *)101));
-  fail_unless(!lrutable_set(t, 2, (void *)102));
-  fail_unless(!lrutable_set(t, 3, (void *)103));
-  fail_unless(!lrutable_set(t, 4, (void *)104));
-  fail_unless(-1 == lrutable_set(t, 5, (void *)105));
-
-  /* can't promote or demote something not set */
-  fail_unless(1 == lrutable_make_newest(t, 5));
-  fail_unless(1 == lrutable_make_oldest(t, 5));
-
-  /* we can swap the oldest and newest */
-  fail_unless(!lrutable_make_newest(t, 0));
-  fail_unless(!lrutable_make_oldest(t, 4));
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 0 && val == (void *)100);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
-  fail_unless(key == 4 && val == (void *)104);
-
-  /* deleting these doesn't mess up ordering of others */
-  fail_unless(!lrutable_del(t, 0));
-  fail_unless(!lrutable_del(t, 4));
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 3 && val == (void *)103);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
-  fail_unless(key == 1 && val == (void *)101);
-
-  /* we can promote and demote elements in the middle */
-  fail_unless(!lrutable_set(t, 5, (void *)105));
-  fail_unless(!lrutable_set(t, 6, (void *)106));
-  fail_unless(!lrutable_make_newest(t, 2));
-  fail_unless(!lrutable_make_oldest(t, 3));
-  fail_unless(!lrutable_get_newest(t, &key, &val));
-  fail_unless(key == 2 && val == (void *)102);
-  fail_unless(!lrutable_get_oldest(t, &key, &val));
-  fail_unless(key == 3 && val == (void *)103);
-
-  lrutable_free(&t);
-  fail_unless(t == NULL);
-}
-END_TEST
-
-START_TEST(test_pop_newest_oldest) {
-  uint64_t key;
-  void *val;
-  lrutable_t *t = lrutable_new(5);
-
-  /* can't pop newest or oldest without entries */
-  fail_unless(-1 == lrutable_pop_newest(t, &key, &val));
-  fail_unless(-1 == lrutable_pop_oldest(t, &key, &val));
-
-  /* fill the table */
-  fail_unless(!lrutable_set(t, 0, (void *)100));
-  fail_unless(!lrutable_set(t, 1, (void *)101));
-  fail_unless(!lrutable_set(t, 2, (void *)102));
-  fail_unless(!lrutable_set(t, 3, (void *)103));
-  fail_unless(!lrutable_set(t, 4, (void *)104));
-  fail_unless(-1 == lrutable_set(t, 5, (void *)105));
-
-  /* pop_newest/oldest give the newest/oldest entries */
-  fail_unless(!lrutable_pop_newest(t, &key, &val));
-  fail_unless(key == 4 && val == (void *)104);
-  fail_unless(!lrutable_pop_oldest(t, &key, &val));
-  fail_unless(key == 0 && val == (void *)100);
-
-  /* popped entries can't be retrieved */
-  fail_unless(1 == lrutable_get(t, 4, &val));
+  /* that should have removed the element */
   fail_unless(1 == lrutable_get(t, 0, &val));
 
-  /* we can consume all entries this way */
-  fail_unless(!lrutable_pop_newest(t, &key, &val));
-  fail_unless(key == 3 && val == (void *)103);
-  fail_unless(!lrutable_pop_oldest(t, &key, &val));
-  fail_unless(key == 1 && val == (void *)101);
-  fail_unless(!lrutable_pop_oldest(t, &key, &val));
-  fail_unless(key == 2 && val == (void *)102);
-  fail_unless(-1 == lrutable_pop_oldest(t, &key, &val));
+  /* fill it up */
+  fail_unless(!lrutable_set(t, 0, (void *)100));
+  fail_unless(!lrutable_set(t, 1, (void *)101));
+  fail_unless(!lrutable_set(t, 2, (void *)102));
+  fail_unless(!lrutable_set(t, 3, (void *)103));
+  fail_unless(!lrutable_set(t, 4, (void *)104));
 
-  /* adding and popping a few more entries for fun */
-  fail_unless(!lrutable_set(t, 5, (void *)105));
-  fail_unless(!lrutable_set(t, 6, (void *)106));
-  fail_unless(!lrutable_set(t, 7, (void *)107));
-  fail_unless(!lrutable_set(t, 8, (void *)108));
-  fail_unless(!lrutable_pop_oldest(t, &key, &val));
-  fail_unless(key == 5 && val == (void *)105);
-  fail_unless(!lrutable_pop_newest(t, &key, &val));
-  fail_unless(key == 8 && val == (void *)108);
-  fail_unless(!lrutable_pop_oldest(t, &key, &val));
-  fail_unless(key == 6 && val == (void *)106);
-  fail_unless(!lrutable_pop_newest(t, &key, &val));
-  fail_unless(key == 7 && val == (void *)107);
+  /* pop them all */
+  fail_unless(!lrutable_pop_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+  fail_unless(!lrutable_pop_lru(t, &key, &val));
+  fail_unless(key == 1 && val == (void *)101);
+  fail_unless(!lrutable_pop_lru(t, &key, &val));
+  fail_unless(key == 2 && val == (void *)102);
+  fail_unless(!lrutable_pop_lru(t, &key, &val));
+  fail_unless(key == 3 && val == (void *)103);
+  fail_unless(!lrutable_pop_lru(t, &key, &val));
+  fail_unless(key == 4 && val == (void *)104);
+
+  /* table is now empty */
+  fail_unless(-1 == lrutable_pop_lru(t, &key, &val));
 
   lrutable_free(&t);
   fail_unless(t == NULL);
 }
 END_TEST
+
+START_TEST(test_del_lru) {
+  uint64_t key;
+  void *val;
+  lrutable_t *t = lrutable_new(5);
+
+  /* empty table has no LRU */
+  fail_unless(-1 == lrutable_del_lru(t));
+
+  /* table of size 1 has 1 LRU */
+  fail_unless(!lrutable_set(t, 0, (void *)100));
+  fail_unless(!lrutable_del_lru(t));
+  fail_unless(-1 == lrutable_del_lru(t));
+
+  /* with several elements, only the LRU disappears */
+  fail_unless(!lrutable_set(t, 0, (void *)100));
+  fail_unless(!lrutable_set(t, 1, (void *)101));
+  fail_unless(!lrutable_set(t, 2, (void *)102));
+  fail_unless(!lrutable_set(t, 3, (void *)103));
+  fail_unless(!lrutable_del_lru(t));
+  GET_AND_CHECK(t, 3, 103);
+  GET_AND_CHECK(t, 2, 102);
+  GET_AND_CHECK(t, 1, 101);
+  fail_unless(1 == lrutable_get(t, 0, &val));
+
+  /* fill it up and del_lru() until it's empty */
+  fail_unless(!lrutable_set(t, 4, (void *)104));
+  fail_unless(!lrutable_set(t, 5, (void *)105));
+  /* MRU = 5, 4, 1, 2, 3 = LRU */
+  fail_unless(!lrutable_del_lru(t));
+  GET_AND_CHECK(t, 1, 101);
+  GET_AND_CHECK(t, 2, 102);
+  GET_AND_CHECK(t, 5, 105);
+  GET_AND_CHECK(t, 4, 104);
+  fail_unless(1 == lrutable_get(t, 3, &val));
+  /* MRU = 4, 5, 2, 1 = LRU */
+  fail_unless(!lrutable_del_lru(t));
+  GET_AND_CHECK(t, 4, 104);
+  GET_AND_CHECK(t, 5, 105);
+  GET_AND_CHECK(t, 2, 102);
+  fail_unless(1 == lrutable_get(t, 1, &val));
+  /* MRU = 2, 5, 4 = LRU */
+  fail_unless(!lrutable_del_lru(t));
+  GET_AND_CHECK(t, 2, 102);
+  GET_AND_CHECK(t, 5, 105);
+  fail_unless(1 == lrutable_get(t, 4, &val));
+  /* MRU = 5, 2 = LRU */
+  fail_unless(!lrutable_del_lru(t));
+  GET_AND_CHECK(t, 5, 105);
+  fail_unless(1 == lrutable_get(t, 2, &val));
+  /* MRU = 5 = LRU */
+  fail_unless(!lrutable_del_lru(t));
+  fail_unless(1 == lrutable_get(t, 5, &val));
+  fail_unless(-1 == lrutable_del_lru(t));
+
+  lrutable_free(&t);
+  fail_unless(t == NULL);
+}
+END_TEST
+
+START_TEST(test_lruness_of_htable_operations) {
+  uint64_t key;
+  void *val;
+  lrutable_t *t = lrutable_new(5);
+
+  /* fill it up */
+  fail_unless(!lrutable_set(t, 0, (void *)100));
+  fail_unless(!lrutable_set(t, 1, (void *)101));
+  fail_unless(!lrutable_set(t, 2, (void *)102));
+  fail_unless(!lrutable_set(t, 3, (void *)103));
+  fail_unless(!lrutable_set(t, 4, (void *)104));
+
+  /* least recently set is LRU */
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+
+  /* lrutable_get() makes entry MRU */
+  fail_unless(!lrutable_get(t, 0, &val));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 1 && val == (void *)101);
+  fail_unless(!lrutable_get(t, 1, &val));
+  fail_unless(!lrutable_get(t, 2, &val));
+  fail_unless(!lrutable_get(t, 3, &val));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 4 && val == (void *)104);
+
+  /* lrutable_del() doesn't break the ordering
+   * current order: MRU = 3, 2, 1, 0, 4 = LRU */
+  fail_unless(!lrutable_del(t, 1));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 4 && val == (void *)104);
+  fail_unless(!lrutable_del(t, 4));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+
+  /* nor does lrutable_pop()
+   * current order: MRU = 3, 2, 0 = LRU */
+  fail_unless(!lrutable_pop(t, 2, &val));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 0 && val == (void *)100);
+  fail_unless(!lrutable_pop(t, 0, &val));
+  fail_unless(!lrutable_get_lru(t, &key, &val));
+  fail_unless(key == 3 && val == (void *)103);
+
+  lrutable_free(&t);
+  fail_unless(t == NULL);
+}
+END_TEST
+
 
 Suite *lrutable_suite() {
   TCase *tc;
@@ -430,11 +407,11 @@ Suite *lrutable_suite() {
   tcase_add_test (tc, test_set_full);
   suite_add_tcase (s, tc);
 
-  tc = tcase_create ("linking");
-  tcase_add_test (tc, test_pop);
-  tcase_add_test (tc, test_get_newest_oldest);
-  tcase_add_test (tc, test_make_newest_oldest);
-  tcase_add_test (tc, test_pop_newest_oldest);
+  tc = tcase_create ("lru");
+  tcase_add_test (tc, test_get_lru);
+  tcase_add_test (tc, test_pop_lru);
+  tcase_add_test (tc, test_del_lru);
+  tcase_add_test (tc, test_lruness_of_htable_operations);
   suite_add_tcase (s, tc);
   return s;
 }

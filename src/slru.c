@@ -76,11 +76,8 @@ static int slru_get(slru_t *slru, uint64_t key, void **ptr) {
   uint64_t k;
 
   /* hit A */
-  if (!lrutable_get(slru->A_t, key, &data)) {
-    lrutable_make_newest(slru->A_t, key);
-    *ptr = data;
+  if (!lrutable_get(slru->A_t, key, ptr))
     return 0;
-  }
 
   /* else check B, promote to A MRU if found */
   if (!lrutable_pop(slru->B_t, key, &data)) {
@@ -88,7 +85,7 @@ static int slru_get(slru_t *slru, uint64_t key, void **ptr) {
 
     /* if A is full, we demote A's LRU to B */
     if (slru->A_size >= slru->A_max) {
-      lrutable_pop_oldest(slru->A_t, &k, &v);
+      lrutable_pop_lru(slru->A_t, &k, &v);
       lrutable_set(slru->B_t, k, v);
       slru->A_size--;
       slru->B_size++;
@@ -124,7 +121,7 @@ int slru_fetch(slru_t *slru, uint64_t key, void **ptr) {
     data = slru->data + slru->active * slru->size;
     slru->active++;
   } else {
-    lrutable_pop_oldest(slru->B_t, &k, &data);
+    lrutable_pop_lru(slru->B_t, &k, &data);
     slru->B_size--;
   }
 

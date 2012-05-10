@@ -193,16 +193,21 @@ int lrutable_get(lrutable_t *t, uint64_t key, void **val) {
   if (rc)
     return rc;
 
+  /* make record MRU */
+  list_disconnect(t, rec);
+  rec->lprev = NULL;
+  rec->lnext = t->lfirst;
+  if (t->lfirst)
+    t->lfirst->lprev = rec;
+  else
+    t->llast = rec;
+  t->lfirst = rec;
+
   *val = rec->val;
 
   return 0;
 }
 
-/* Retrieves and deletes entry by key
- *
- * Returns 0 on success
- *         1 if entry was not found
- */
 int lrutable_pop(lrutable_t *t, uint64_t key, void **val) {
   int rc, h;
   struct lrutable_record *rec, *tprev;
@@ -232,17 +237,7 @@ int lrutable_del(lrutable_t *t, uint64_t key) {
   return lrutable_pop(t, key, &val);
 }
 
-int lrutable_get_newest(lrutable_t *t, uint64_t *key, void **val) {
-  if (!t->lfirst)
-    return -1;
-
-  *key = t->lfirst->key;
-  *val = t->lfirst->val;
-
-  return 0;
-}
-
-int lrutable_get_oldest(lrutable_t *t, uint64_t *key, void **val) {
+int lrutable_get_lru(lrutable_t *t, uint64_t *key, void **val) {
   if (!t->llast)
     return -1;
 
@@ -252,71 +247,14 @@ int lrutable_get_oldest(lrutable_t *t, uint64_t *key, void **val) {
   return 0;
 }
 
-int lrutable_pop_newest(lrutable_t *t, uint64_t *key, void **val) {
-  if (!t->lfirst)
-    return -1;
-  *key = t->lfirst->key;
-  return lrutable_pop(t, *key, val);
-}
-
-int lrutable_pop_oldest(lrutable_t *t, uint64_t *key, void **val) {
+int lrutable_pop_lru(lrutable_t *t, uint64_t *key, void **val) {
   if (!t->llast)
     return -1;
   *key = t->llast->key;
   return lrutable_pop(t, *key, val);
 }
 
-int lrutable_make_newest(lrutable_t *t, uint64_t key) {
-  int rc;
-  struct lrutable_record *rec;
-
-  rc = lookup_record(t, key, NULL, &rec, NULL);
-  if (rc)
-    return rc;
-
-  list_disconnect(t, rec);
-
-  /* set as first */
-  rec->lprev = NULL;
-  rec->lnext = t->lfirst;
-  if (t->lfirst)
-    t->lfirst->lprev = rec;
-  else
-    t->llast = rec;
-  t->lfirst = rec;
-
-  return 0;
-}
-
-int lrutable_make_oldest(lrutable_t *t, uint64_t key) {
-  int rc;
-  struct lrutable_record *rec;
-
-  rc = lookup_record(t, key, NULL, &rec, NULL);
-  if (rc)
-    return rc;
-
-  list_disconnect(t, rec);
-
-  /* set as last */
-  rec->lnext = NULL;
-  rec->lprev = t->llast;
-  if (t->llast)
-    t->llast->lnext = rec;
-  else
-    t->lfirst = rec;
-  t->llast = rec;
-
-  return 0;
-}
-
-int lrutable_del_newest(lrutable_t *t) {
-  if (!t->lfirst)
-    return -1;
-  return lrutable_del(t, t->lfirst->key);
-}
-
-int lrutable_del_oldest(lrutable_t *t) {
+int lrutable_del_lru(lrutable_t *t) {
   if (!t->llast)
     return -1;
   return lrutable_del(t, t->llast->key);
