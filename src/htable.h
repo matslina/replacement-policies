@@ -31,6 +31,13 @@ int htable_set(htable_t *h, uint64_t key, void *val);
  */
 int htable_get(htable_t *h, uint64_t key, void **val);
 
+/* Retrieves and deletes entry by key
+ *
+ * Returns 0 on success
+ *         1 if entry was not found
+ */
+int htable_pop(htable_t *h, uint64_t key, void **val);
+
 /* Deletes entry by key
  *
  * Returns 0 on success

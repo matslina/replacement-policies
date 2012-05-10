@@ -119,7 +119,7 @@ int htable_get(htable_t *htable, uint64_t key, void **val) {
   return 1;
 }
 
-int htable_del(htable_t *htable, uint64_t key) {
+int htable_pop(htable_t *htable, uint64_t key, void **val) {
   int h;
   struct htable_record *rec, *prev;
 
@@ -137,6 +137,7 @@ int htable_del(htable_t *htable, uint64_t key) {
       rec->next = htable->free;
       htable->free = rec;
 
+      *val = rec->val;
       return 0;
     }
 
@@ -145,6 +146,12 @@ int htable_del(htable_t *htable, uint64_t key) {
   }
 
   return 1;
+}
+
+int htable_del(htable_t *htable, uint64_t key) {
+  void *val;
+
+  return htable_pop(htable, key, &val);
 }
 
  void htable_free(htable_t **htable) {

@@ -122,6 +122,55 @@ START_TEST(test_get_missing) {
 }
 END_TEST
 
+START_TEST(test_pop) {
+  void *val;
+  htable_t *t = htable_new(5);
+
+  /* fill the table */
+  fail_unless(!htable_set(t, 0, (void *)100));
+  fail_unless(!htable_set(t, 1, (void *)101));
+  fail_unless(!htable_set(t, 2, (void *)102));
+  fail_unless(!htable_set(t, 3, (void *)103));
+  fail_unless(!htable_set(t, 4, (void *)104));
+  fail_unless(-1 == htable_set(t, 5, (void *)105));
+
+  /* can't pop entries not set */
+  fail_unless(1 == htable_pop(t, 5, &val));
+  fail_unless(1 == htable_pop(t, 6, &val));
+  fail_unless(1 == htable_pop(t, 7, &val));
+  fail_unless(1 == htable_pop(t, 8, &val));
+  fail_unless(1 == htable_pop(t, 9, &val));
+  fail_unless(1 == htable_pop(t, 10, &val));
+  fail_unless(1 == htable_pop(t, 11, &val));
+
+  /* set entries can be popped */
+  fail_unless(!htable_pop(t, 1, &val));
+  fail_unless(val == (void *)101);
+  fail_unless(!htable_pop(t, 4, &val));
+  fail_unless(val == (void *)104);
+
+  /* popped entries can't be retrieved or popped */
+  fail_unless(1 == htable_get(t, 1, &val));
+  fail_unless(1 == htable_pop(t, 1, &val));
+  fail_unless(1 == htable_get(t, 4, &val));
+  fail_unless(1 == htable_pop(t, 4, &val));
+
+  /* popping made room for new entries */
+  fail_unless(!htable_set(t, 0, (void *)105));
+  fail_unless(!htable_set(t, 1, (void *)106));
+
+  /* multiple entries with same keys are popped as if stacked */
+  fail_unless(!htable_pop(t, 0, &val));
+  fail_unless(val == (void *)105);
+  fail_unless(!htable_pop(t, 0, &val));
+  fail_unless(val == (void *)100);
+  fail_unless(1 == htable_pop(t, 0, &val));
+
+  htable_free(&t);
+  fail_unless(t == NULL);
+}
+END_TEST
+
 START_TEST(test_deletion) {
   void *v;
   htable_t *t = htable_new(10);
@@ -196,6 +245,7 @@ Suite *htable_suite() {
   tc = tcase_create ("foobar");
   tcase_add_test (tc, test_set_get);
   tcase_add_test (tc, test_get_missing);
+  tcase_add_test (tc, test_pop);
   tcase_add_test (tc, test_deletion);
   tcase_add_test (tc, test_free);
   tcase_add_test (tc, test_stacking);
