@@ -24,16 +24,20 @@ clk_t *clk_new(size_t size, size_t nmemb) {
   clk_t *r;
 
   r = malloc(sizeof(clk_t));
-  if (!r) goto fail;
+  if (!r)
+    goto fail;
 
   r->page = malloc(nmemb * sizeof(struct clk_page));
-  if (!r->page) goto fail_page;
+  if (!r->page)
+    goto fail_page;
 
   r->data = malloc(nmemb * size);
-  if (!r->data) goto fail_data;
+  if (!r->data)
+    goto fail_data;
 
   r->t = htable_new(nmemb);
-  if (!r->t) goto fail_htable;
+  if (!r->t)
+    goto fail_htable;
 
   r->size = size;
   r->nmemb = nmemb;
@@ -54,12 +58,14 @@ clk_t *clk_new(size_t size, size_t nmemb) {
 int clk_fetch(clk_t *clk, uint64_t key, void **ptr) {
   struct clk_page *page;
 
+  /* if cached, tick the referenced box and return */
   if (!htable_get(clk->t, key, (void **)&page)) {
     page->referenced = 1;
     *ptr = page->data;
     return 0;
   }
 
+  /* otherwise, check if there's an unused page available */
   if (clk->active < clk->nmemb) {
     page = clk->page + clk->active;
     page->data = clk->data + clk->active * clk->size;
@@ -71,15 +77,17 @@ int clk_fetch(clk_t *clk, uint64_t key, void **ptr) {
     return 1;
   }
 
+  /* otherwise, do eviction according to the clock algorithm */
   while (clk->page[clk->hand].referenced) {
     clk->page[clk->hand].referenced = 0;
     if (++clk->hand >= clk->nmemb)
       clk->hand = 0;
   }
-
   page = clk->page + clk->hand;
   if (++clk->hand >= clk->nmemb)
     clk->hand = 0;
+
+  /* and finally reuse the evicted page */
   htable_del(clk->t, page->key);
   htable_set(clk->t, key, page);
   page->key = key;
