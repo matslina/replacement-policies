@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <assert.h>
-#include "lrutable.h"
+#include "linkmap.h"
 #include "lru.h"
 
 #include <stdio.h>
 
 struct lru_s {
-  lrutable_t *t;
+  linkmap_t *lm;
   size_t size;
   size_t nmemb;
   size_t active;
@@ -15,26 +15,24 @@ struct lru_s {
 
 lru_t *lru_new(size_t size, size_t nmemb) {
   lru_t *lru;
+  linkmap_t *lm;
+  void *data;
 
   assert(nmemb >= 2);
 
   lru = malloc(sizeof(lru_t));
-  if (!lru)
-    return NULL;
+  lm = linkmap_new(nmemb);
+  data = malloc(nmemb * size);
 
-  lru->t = lrutable_new(nmemb);
-  if (!lru->t) {
+  if (!lru || !lm || !data) {
     free(lru);
+    free(lm);
+    free(data);
     return NULL;
   }
 
-  lru->data = malloc(nmemb * size);
-  if (!lru->data) {
-    free(lru->t);
-    free(lru);
-    return NULL;
-  }
-
+  lru->lm = lm;
+  lru->data = data;
   lru->size = size;
   lru->nmemb = nmemb;
   lru->active = 0;
@@ -47,19 +45,22 @@ int lru_fetch(lru_t *lru, uint64_t key, void **ptr) {
   uint64_t k;
 
   /* hit cache */
-  if (!lrutable_get(lru->t, key, ptr))
+  if (!linkmap_pop(lru->lm, key, ptr)) {
+    /* reinsert as head, i.e. MRU, if found */
+    linkmap_set(lru->lm, key, *ptr);
     return 0;
+  }
 
   /* create new page if possible, evict LRU otherwise */
   if (lru->active < lru->nmemb) {
     val = lru->data + lru->active * lru->size;
     lru->active++;
   } else {
-    lrutable_pop_lru(lru->t, &k, &val);
+    linkmap_pop_tail(lru->lm, &k, &val);
   }
 
   /* insert as LRU */
-  lrutable_set(lru->t, key, val);
+  linkmap_set(lru->lm, key, val);
 
   *ptr = val;
 
@@ -68,7 +69,7 @@ int lru_fetch(lru_t *lru, uint64_t key, void **ptr) {
 
 void lru_free(lru_t **lru) {
   free((*lru)->data);
-  lrutable_free(&(*lru)->t);
+  linkmap_free(&(*lru)->lm);
   free(*lru);
   *lru = NULL;
 }

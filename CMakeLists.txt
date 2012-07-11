@@ -14,7 +14,7 @@ find_library(check check)
 enable_testing()
 
 add_test(htable test/htable_test)
-add_test(lrutable test/lrutable_test)
+add_test(linkmap test/linkmap_test)
 add_test(fifo test/fifo_test)
 add_test(rnd test/rnd_test)
 add_test(clk test/clk_test)

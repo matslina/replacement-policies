@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
-#include "lrutable.h"
+#include "linkmap.h"
 #include "slru.h"
 
 #include <stdio.h>
@@ -10,8 +10,8 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 struct slru_s {
-  lrutable_t *A_t;
-  lrutable_t *B_t;
+  linkmap_t *A_t;
+  linkmap_t *B_t;
   void *data;
   size_t A_max;
   size_t A_size;
@@ -46,16 +46,16 @@ slru_t *slru_new(size_t size, size_t nmemb) {
     return NULL;
   }
 
-  slru->A_t = lrutable_new(slru->A_max);
+  slru->A_t = linkmap_new(slru->A_max);
   if (!slru->A_t) {
     free(slru->data);
     free(slru);
     return NULL;
   }
 
-  slru->B_t = lrutable_new(slru->B_max);
+  slru->B_t = linkmap_new(slru->B_max);
   if (!slru->B_t) {
-    lrutable_free(&slru->B_t);
+    linkmap_free(&slru->B_t);
     free(slru->data);
     free(slru);
     return NULL;
@@ -76,22 +76,25 @@ static int slru_get(slru_t *slru, uint64_t key, void **ptr) {
   uint64_t k;
 
   /* hit A */
-  if (!lrutable_get(slru->A_t, key, ptr))
+  if (!linkmap_pop(slru->A_t, key, ptr)) {
+    /* reinsert as head, i.e. MRU, if found */
+    linkmap_set(slru->A_t, key, *ptr);
     return 0;
+  }
 
   /* else check B, promote to A MRU if found */
-  if (!lrutable_pop(slru->B_t, key, &data)) {
+  if (!linkmap_pop(slru->B_t, key, &data)) {
     slru->B_size--;
 
     /* if A is full, we demote A's LRU to B */
     if (slru->A_size >= slru->A_max) {
-      lrutable_pop_lru(slru->A_t, &k, &v);
-      lrutable_set(slru->B_t, k, v);
+      linkmap_pop_tail(slru->A_t, &k, &v);
+      linkmap_set(slru->B_t, k, v);
       slru->A_size--;
       slru->B_size++;
     }
 
-    lrutable_set(slru->A_t, key, data);
+    linkmap_set(slru->A_t, key, data);
     slru->A_size++;
     *ptr = data;
 
@@ -121,11 +124,11 @@ int slru_fetch(slru_t *slru, uint64_t key, void **ptr) {
     data = slru->data + slru->active * slru->size;
     slru->active++;
   } else {
-    lrutable_pop_lru(slru->B_t, &k, &data);
+    linkmap_pop_tail(slru->B_t, &k, &data);
     slru->B_size--;
   }
 
-  lrutable_set(slru->B_t, key, data);
+  linkmap_set(slru->B_t, key, data);
   slru->B_size++;
   *ptr = data;
 
@@ -134,8 +137,8 @@ int slru_fetch(slru_t *slru, uint64_t key, void **ptr) {
 
 void slru_free(slru_t **slru) {
   free((*slru)->data);
-  lrutable_free(&(*slru)->A_t);
-  lrutable_free(&(*slru)->B_t);
+  linkmap_free(&(*slru)->A_t);
+  linkmap_free(&(*slru)->B_t);
   free(*slru);
   *slru = NULL;
 }
